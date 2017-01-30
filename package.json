@@ -1,7 +1,7 @@
 {
   "name": "d3",
-  "version": "3.2.8",
-  "description": "A small, free JavaScript library for manipulating documents based on data.",
+  "version": "3.5.17",
+  "description": "A JavaScript visualization library for HTML and SVG.",
   "keywords": [
     "dom",
     "w3c",
@@ -25,29 +25,42 @@
     "type": "git",
     "url": "https://github.com/mbostock/d3.git"
   },
-  "main": "index.js",
-  "browserify": "index-browserify.js",
+  "main": "d3.js",
+  "browser": "d3.js",
+  "jspm": {
+    "main": "d3",
+    "shim": {
+      "d3": {
+        "exports": "d3"
+      }
+    },
+    "files": [
+      "d3.js"
+    ],
+    "buildConfig": {
+      "uglify": true
+    }
+  },
   "jam": {
     "main": "d3.js",
     "shim": {
       "exports": "d3"
     }
   },
-  "dependencies": {
-    "jsdom": "~0.5.3"
+  "spm": {
+    "main": "d3.js"
   },
   "devDependencies": {
-    "smash": "~0.0.8",
-    "uglify-js": "2.3.6",
-    "vows": "0.7.x"
+    "jsdom": "3",
+    "seedrandom": "2",
+    "smash": "0.0",
+    "uglify-js": "2.6.2",
+    "vows": "0.8"
   },
   "scripts": {
-    "test": "node_modules/.bin/vows"
+    "test": "vows && echo",
+    "prepublish": "npm test && rm -f package.js src/start.js d3.js d3.min.js d3.zip && bin/start > src/start.js && bin/meteor > package.js && smash src/d3.js | uglifyjs - -b indent-level=2 -o d3.js && bin/uglify d3.js > d3.min.js && chmod a-w d3.js d3.min.js package.js && zip d3.zip LICENSE d3.js d3.min.js",
+    "postpublish": "VERSION=`node -e 'console.log(require(\"./package.json\").version)'`; git push && git push --tags && cp -v README.md LICENSE d3.js d3.min.js ../d3-bower && cd ../d3-bower && git add README.md LICENSE d3.js d3.min.js && git commit -m \"Release $VERSION.\" && git tag -am \"Release $VERSION.\" v${VERSION} && git push && git push --tags && cd - && cp -v d3.js ../d3.github.com/d3.v3.js && cp -v d3.min.js ../d3.github.com/d3.v3.min.js && cd ../d3.github.com && git add d3.v3.js d3.v3.min.js && git commit -m \"d3 ${VERSION}\" && git push"
   },
-  "licenses": [
-    {
-      "type": "BSD",
-      "url": "https://github.com/mbostock/d3/blob/master/LICENSE"
-    }
-  ]
+  "license": "BSD-3-Clause"
 }

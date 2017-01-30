@@ -2,15 +2,18 @@ import "../arrays/map";
 import "../core/functor";
 import "../core/identity";
 import "../core/true";
+import "../geom/point";
+import "../math/abs";
+import "../math/trigonometry";
 import "svg";
 
 function d3_svg_line(projection) {
-  var x = d3_svg_lineX,
-      y = d3_svg_lineY,
+  var x = d3_geom_pointX,
+      y = d3_geom_pointY,
       defined = d3_true,
       interpolate = d3_svg_lineLinear,
       interpolateKey = interpolate.key,
-      tension = .7;
+      tension = 0.7;
 
   function line(data) {
     var segments = [],
@@ -77,16 +80,6 @@ d3.svg.line = function() {
   return d3_svg_line(d3_identity);
 };
 
-// The default `x` property, which references d[0].
-function d3_svg_lineX(d) {
-  return d[0];
-}
-
-// The default `y` property, which references d[1].
-function d3_svg_lineY(d) {
-  return d[1];
-}
-
 // The various interpolators supported by the `line` class.
 var d3_svg_lineInterpolators = d3.map({
   "linear": d3_svg_lineLinear,
@@ -111,11 +104,11 @@ d3_svg_lineInterpolators.forEach(function(key, value) {
 
 // Linear interpolation; generates "L" commands.
 function d3_svg_lineLinear(points) {
-  return points.join("L");
+  return points.length > 1 ? points.join("L") : points + "Z";
 }
 
 function d3_svg_lineLinearClosed(points) {
-  return d3_svg_lineLinear(points) + "Z";
+  return points.join("L") + "Z";
 }
 
 // Step interpolation; generates "H" and "V" commands.
@@ -153,14 +146,14 @@ function d3_svg_lineStepAfter(points) {
 function d3_svg_lineCardinalOpen(points, tension) {
   return points.length < 4
       ? d3_svg_lineLinear(points)
-      : points[1] + d3_svg_lineHermite(points.slice(1, points.length - 1),
+      : points[1] + d3_svg_lineHermite(points.slice(1, -1),
         d3_svg_lineCardinalTangents(points, tension));
 }
 
 // Closed cardinal spline interpolation; generates "C" commands.
 function d3_svg_lineCardinalClosed(points, tension) {
   return points.length < 3
-      ? d3_svg_lineLinear(points)
+      ? d3_svg_lineLinearClosed(points)
       : points[0] + d3_svg_lineHermite((points.push(points[0]), points),
         d3_svg_lineCardinalTangents([points[points.length - 2]]
         .concat(points, [points[1]]), tension));
@@ -403,7 +396,7 @@ function d3_svg_lineMonotoneTangents(points) {
     // mk = m{k + 1} = 0 as the spline connecting these points must be flat to
     // preserve monotonicity. Ignore step 4 and 5 for those k.
 
-    if (Math.abs(d) < 1e-6) {
+    if (abs(d) < ε) {
       m[i] = m[i + 1] = 0;
     } else {
       // 4. Let ak = mk / dk and bk = m{k + 1} / dk.

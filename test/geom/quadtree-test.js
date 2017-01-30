@@ -1,6 +1,7 @@
 var vows = require("vows"),
     load = require("../load"),
-    assert = require("../assert");
+    assert = require("../assert"),
+    _ = require("../../");
 
 var suite = vows.describe("d3.geom.quadtree");
 
@@ -29,14 +30,31 @@ suite.addBatch({
             n = 0;
         q.visit(function(node, x1, y1, x2, y2) {
           assert.deepEqual(node.point, point);
-          assert.isUndefined(node[0]);
-          assert.isUndefined(node[1]);
-          assert.isUndefined(node[2]);
-          assert.isUndefined(node[3]);
+          assert.isUndefined(node.nodes[0]);
+          assert.isUndefined(node.nodes[1]);
+          assert.isUndefined(node.nodes[2]);
+          assert.isUndefined(node.nodes[3]);
           assert.isTrue(node.leaf);
           ++n;
         });
         assert.strictEqual(n, 1, "number of visits");
+      },
+      "find locates the closest point to a given point": function(q) {
+        var dx = 17, dy = 17,
+            points = _.range(dx * dy).map(function(i) { return [i % dx, i / dx | 0]; });
+        q = q(points);
+        assert.deepEqual(q.find([0.1, 0.1]), [0, 0]);
+        assert.deepEqual(q.find([7.5, 7.5]), [7, 7]);
+        assert.deepEqual(q.find([0.1, 15.9]), [0, 16]);
+        assert.deepEqual(q.find([15.9, 15.9]), [16, 16]);
+      },
+      "can find with accessors": function(q) {
+        q.x(function(d) { return d.x; });
+        q.y(function(d) { return d.y; });
+
+        var point = {x: 0, y: 0, arbitrary: 1};
+        q = q([point]);
+        assert.deepEqual(q.find([0, 0]), point);
       }
     },
     "the quadtree applied directly": {
@@ -46,10 +64,10 @@ suite.addBatch({
             n = 0;
         q.visit(function(node, x1, y1, x2, y2) {
           assert.deepEqual(node.point, point);
-          assert.isUndefined(node[0]);
-          assert.isUndefined(node[1]);
-          assert.isUndefined(node[2]);
-          assert.isUndefined(node[3]);
+          assert.isUndefined(node.nodes[0]);
+          assert.isUndefined(node.nodes[1]);
+          assert.isUndefined(node.nodes[2]);
+          assert.isUndefined(node.nodes[3]);
           assert.isTrue(node.leaf);
           ++n;
         });
@@ -60,10 +78,10 @@ suite.addBatch({
             n = 0;
         q.visit(function(node, x1, y1, x2, y2) {
           assert.isNull(node.point);
-          assert.isUndefined(node[0]);
-          assert.isUndefined(node[1]);
-          assert.isUndefined(node[2]);
-          assert.isUndefined(node[3]);
+          assert.isUndefined(node.nodes[0]);
+          assert.isUndefined(node.nodes[1]);
+          assert.isUndefined(node.nodes[2]);
+          assert.isUndefined(node.nodes[3]);
           assert.isTrue(node.leaf);
           ++n;
         });

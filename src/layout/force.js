@@ -11,15 +11,17 @@ import "layout";
 d3.layout.force = function() {
   var force = {},
       event = d3.dispatch("start", "tick", "end"),
+      timer,
       size = [1, 1],
       drag,
       alpha,
-      friction = .9,
+      friction = 0.9,
       linkDistance = d3_layout_forceLinkDistance,
       linkStrength = d3_layout_forceLinkStrength,
       charge = -30,
-      gravity = .1,
-      theta = .8,
+      chargeDistance2 = d3_layout_forceChargeDistance2,
+      gravity = 0.1,
+      theta2 = 0.64,
       nodes = [],
       links = [],
       distances,
@@ -31,18 +33,21 @@ d3.layout.force = function() {
       if (quad.point !== node) {
         var dx = quad.cx - node.x,
             dy = quad.cy - node.y,
-            dn = 1 / Math.sqrt(dx * dx + dy * dy);
+            dw = x2 - x1,
+            dn = dx * dx + dy * dy;
 
         /* Barnes-Hut criterion. */
-        if ((x2 - x1) * dn < theta) {
-          var k = quad.charge * dn * dn;
-          node.px -= dx * k;
-          node.py -= dy * k;
+        if (dw * dw / theta2 < dn) {
+          if (dn < chargeDistance2) {
+            var k = quad.charge / dn;
+            node.px -= dx * k;
+            node.py -= dy * k;
+          }
           return true;
         }
 
-        if (quad.point && isFinite(dn)) {
-          var k = quad.pointCharge * dn * dn;
+        if (quad.point && dn && dn < chargeDistance2) {
+          var k = quad.pointCharge / dn;
           node.px -= dx * k;
           node.py -= dy * k;
         }
@@ -53,7 +58,8 @@ d3.layout.force = function() {
 
   force.tick = function() {
     // simulated annealing, basically
-    if ((alpha *= .99) < .005) {
+    if ((alpha *= 0.99) < 0.005) {
+      timer = null;
       event.end({type: "end", alpha: alpha = 0});
       return true;
     }
@@ -81,7 +87,7 @@ d3.layout.force = function() {
         l = alpha * strengths[i] * ((l = Math.sqrt(l)) - distances[i]) / l;
         x *= l;
         y *= l;
-        t.x -= x * (k = s.weight / (t.weight + s.weight));
+        t.x -= x * (k = (s.weight + t.weight ? s.weight / (s.weight + t.weight) : 0.5));
         t.y -= y * k;
         s.x += x * (k = 1 - k);
         s.y += y * k;
@@ -169,6 +175,12 @@ d3.layout.force = function() {
     return force;
   };
 
+  force.chargeDistance = function(x) {
+    if (!arguments.length) return Math.sqrt(chargeDistance2);
+    chargeDistance2 = x * x;
+    return force;
+  };
+
   force.gravity = function(x) {
     if (!arguments.length) return gravity;
     gravity = +x;
@@ -176,8 +188,8 @@ d3.layout.force = function() {
   };
 
   force.theta = function(x) {
-    if (!arguments.length) return theta;
-    theta = +x;
+    if (!arguments.length) return Math.sqrt(theta2);
+    theta2 = x * x;
     return force;
   };
 
@@ -186,11 +198,15 @@ d3.layout.force = function() {
 
     x = +x;
     if (alpha) { // if we're already running
-      if (x > 0) alpha = x; // we might keep it hot
-      else alpha = 0; // or, next tick will dispatch "end"
+      if (x > 0) { // we might keep it hot
+        alpha = x;
+      } else { // or we might stop
+        timer.c = null, timer.t = NaN, timer = null;
+        event.end({type: "end", alpha: alpha = 0});
+      }
     } else if (x > 0) { // otherwise, fire it up!
       event.start({type: "start", alpha: alpha = x});
-      d3.timer(force.tick);
+      timer = d3_timer(force.tick);
     }
 
     return force;
@@ -198,7 +214,6 @@ d3.layout.force = function() {
 
   force.start = function() {
     var i,
-        j,
         n = nodes.length,
         m = links.length,
         w = size[0],
@@ -239,20 +254,12 @@ d3.layout.force = function() {
     if (typeof charge === "function") for (i = 0; i < n; ++i) charges[i] = +charge.call(this, nodes[i], i);
     else for (i = 0; i < n; ++i) charges[i] = charge;
 
-    // initialize node position based on first neighbor
+    // inherit node position from first neighbor with defined position
+    // or if no such neighbors, initialize node position randomly
+    // initialize neighbors lazily to avoid overhead when not needed
     function position(dimension, size) {
-      var neighbors = neighbor(i),
-          j = -1,
-          m = neighbors.length,
-          x;
-      while (++j < m) if (!isNaN(x = neighbors[j][dimension])) return x;
-      return Math.random() * size;
-    }
-
-    // initialize neighbors lazily
-    function neighbor() {
       if (!neighbors) {
-        neighbors = [];
+        neighbors = new Array(n);
         for (j = 0; j < n; ++j) {
           neighbors[j] = [];
         }
@@ -262,14 +269,19 @@ d3.layout.force = function() {
           neighbors[o.target.index].push(o.source);
         }
       }
-      return neighbors[i];
+      var candidates = neighbors[i],
+          j = -1,
+          l = candidates.length,
+          x;
+      while (++j < l) if (!isNaN(x = candidates[j][dimension])) return x;
+      return Math.random() * size;
     }
 
     return force.resume();
   };
 
   force.resume = function() {
-    return force.alpha(.1);
+    return force.alpha(0.1);
   };
 
   force.stop = function() {
@@ -343,8 +355,8 @@ function d3_layout_forceAccumulate(quad, alpha, charges) {
   if (quad.point) {
     // jitter internal nodes that are coincident
     if (!quad.leaf) {
-      quad.point.x += Math.random() - .5;
-      quad.point.y += Math.random() - .5;
+      quad.point.x += Math.random() - 0.5;
+      quad.point.y += Math.random() - 0.5;
     }
     var k = alpha * charges[quad.point.index];
     quad.charge += quad.pointCharge = k;
@@ -356,4 +368,5 @@ function d3_layout_forceAccumulate(quad, alpha, charges) {
 }
 
 var d3_layout_forceLinkDistance = 20,
-    d3_layout_forceLinkStrength = 1;
+    d3_layout_forceLinkStrength = 1,
+    d3_layout_forceChargeDistance2 = Infinity;

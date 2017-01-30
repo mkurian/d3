@@ -10,8 +10,7 @@ module.exports = function() {
       expression = "d3",
       sandbox = {console: console, Date: Date}; // so we can use deepEqual in tests
 
-  files.unshift("src/start");
-  files.push("src/end");
+  files.unshift("test/start");
 
   function topic() {
     var callback = this.callback;
@@ -26,8 +25,13 @@ module.exports = function() {
     return topic;
   };
 
+  topic.sandbox = function(_) {
+    sandbox = _;
+    return topic;
+  };
+
   topic.document = function(_) {
-    var document = jsdom.jsdom("<html><head></head><body></body></html>");
+    var document = jsdom.jsdom();
 
     // Monkey-patch createRange support to JSDOM.
     document.createRange = function() {
@@ -41,7 +45,7 @@ module.exports = function() {
       console: console,
       XMLHttpRequest: XMLHttpRequest,
       document: document,
-      window: document.createWindow(),
+      window: document.parentWindow,
       setTimeout: setTimeout,
       clearTimeout: clearTimeout,
       Date: Date // so we can override Date.now in tests, and use deepEqual

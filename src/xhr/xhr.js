@@ -15,13 +15,13 @@ function d3_xhrType(response) {
 
 function d3_xhr(url, mimeType, response, callback) {
   var xhr = {},
-      dispatch = d3.dispatch("progress", "load", "error"),
+      dispatch = d3.dispatch("beforesend", "progress", "load", "error"),
       headers = {},
       request = new XMLHttpRequest,
       responseType = null;
 
   // If IE does not support CORS, use XDomainRequest.
-  if (d3_window.XDomainRequest
+  if (this.XDomainRequest
       && !("withCredentials" in request)
       && /^(http(s)?:)?\/\//.test(url)) request = new XDomainRequest;
 
@@ -31,7 +31,7 @@ function d3_xhr(url, mimeType, response, callback) {
 
   function respond() {
     var status = request.status, result;
-    if (!status && request.responseText || status >= 200 && status < 300 || status === 304) {
+    if (!status && d3_xhrHasResponse(request) || status >= 200 && status < 300 || status === 304) {
       try {
         result = response.call(xhr, request);
       } catch (e) {
@@ -97,6 +97,7 @@ function d3_xhr(url, mimeType, response, callback) {
     if (mimeType != null && request.overrideMimeType) request.overrideMimeType(mimeType);
     if (responseType != null) request.responseType = responseType;
     if (callback != null) xhr.on("error", callback).on("load", function(request) { callback(null, request); });
+    dispatch.beforesend.call(xhr, request);
     request.send(data == null ? null : data);
     return xhr;
   };
@@ -115,4 +116,11 @@ function d3_xhr_fixCallback(callback) {
   return callback.length === 1
       ? function(error, request) { callback(error == null ? request : null); }
       : callback;
+}
+
+function d3_xhrHasResponse(request) {
+  var type = request.responseType;
+  return type && type !== "text"
+      ? request.response // null on error
+      : request.responseText; // "" on error
 }
